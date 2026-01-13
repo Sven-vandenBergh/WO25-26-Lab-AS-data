@@ -14,7 +14,7 @@ def convert_csv(filepath, sep="\t", skip_rows=0, units_row=True, save_csv=False,
     """
     Convert weirdly formatted txt file to csv.
     Made for data files from 3B Scientific Digital Spectrometer LD.
-    Last edited by Sven v/d Bergh @ 21h 13/01/2026
+    Last edited by Sven v/d Bergh @ 22:30 13/01/2026
     Latest version for Python 3.12.
 
     Parameters]
@@ -48,6 +48,7 @@ def convert_csv(filepath, sep="\t", skip_rows=0, units_row=True, save_csv=False,
         df = df.iloc[1:].reset_index(drop=True)         # Remove units row
 
     df[df.columns] = df[df.columns].apply(pd.to_numeric, errors='coerce')        # Convert all values to floats
+    df = df[df['Wavelength (nm)'] != 0].reset_index(drop=True)          # Rows for wavelength=0 are excluded
 
     # Save csv file
     if save_csv:
@@ -67,3 +68,4 @@ def convert_csv(filepath, sep="\t", skip_rows=0, units_row=True, save_csv=False,
             return df
 
     return df
+
