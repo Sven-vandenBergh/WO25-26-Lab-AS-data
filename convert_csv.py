@@ -47,6 +47,8 @@ def convert_csv(filepath, sep="\t", skip_rows=0, units_row=True, save_csv=False,
 
         df = df.iloc[1:].reset_index(drop=True)         # Remove units row
 
+    df[df.columns] = df[df.columns].apply(pd.to_numeric, errors='coerce')        # Convert all values to floats
+
     # Save csv file
     if save_csv:
         if not save_path:       # Give name if not given by user
@@ -63,4 +65,5 @@ def convert_csv(filepath, sep="\t", skip_rows=0, units_row=True, save_csv=False,
         else:
             df.to_csv(save_path, index=False)       # Automatic save
             return df
+
     return df
