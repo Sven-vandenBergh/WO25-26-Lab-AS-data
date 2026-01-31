@@ -1,13 +1,14 @@
 ######################
 #---Import-modules---#
 ######################
-from matplotlib import pyplot as plt
 
 from convert_csv import convert_csv as convert
 from matplotlib.pyplot import subplots, show, savefig
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
 from scipy.constants import Rydberg as Rh
+from scipy.stats import ttest_ind
+import pandas as pd
 
 ######################
 #----Import--Data----#
@@ -110,7 +111,8 @@ show()
 #---Correction-gel---#
 ######################
 
-C = zero['Mean Curve']/coated['Mean Curve']
+C_vp = zero['Mean Curve']/coated['Mean Curve']
+C_lq = zero['Mean Curve']/empty['Mean Curve']
 
 def corr(null, data, C):
     """
@@ -133,9 +135,28 @@ def corr(null, data, C):
     corrected = np.clip(corrected, None, null)
     return corrected
 
-for df in [liquid, vapour_little, vapour_lot, vapour_dark]:
-    df['Mean Corrected'] = corr(zero['Mean Curve'], df['Mean Curve'], C)
-    df['Std Corrected'] = C*df['Std']
+for df in [vapour_little, vapour_lot, vapour_dark]:
+    df['Mean Corrected'] = corr(zero['Mean Curve'], df['Mean Curve'], C_vp)
+    df['Std Corrected'] = C_vp*df['Std']
+
+liquid['Mean Corrected'] = corr(zero['Mean Curve'], liquid['Mean Curve'], C_lq)
+liquid['Std Corrected'] = C_lq*liquid['Std']
+
+fig, ax = subplots(2,1, tight_layout=True)
+ax[0].plot(x, C_vp, color='darksalmon', label='Vapour')
+ax[0].plot(x, C_lq, color='darkslategrey', label='Liquid')
+ax[0].set_ylabel('Correction Coefficient')
+ax[0].legend()
+ax[0].grid(alpha=0.5)
+
+ax[1].plot(x, C_vp, color='darksalmon', label='Vapour')
+ax[1].plot(x, C_lq, color='darkslategrey', label='Liquid')
+ax[1].set_xlabel('Wavelength (nm)')
+ax[1].set_ylabel('Correction Coefficient')
+ax[1].grid(alpha=0.5)
+ax[1].set_ylim(0,5)
+savefig(r"C:\Users\Gebruiker\Documents\Uni\W&O Labs\Plots\correction_coefficients.png")
+show()
 
 fig, axs = subplots(2,1, tight_layout=True, figsize=(5,9))
 
@@ -187,7 +208,7 @@ ax[1].fill_between(x, vapour_dark['Absorbance'] + vapour_dark['Std Absorbance'],
 #ax[1].plot(x,liquid['Absorbance'], color='darkslategrey', label='Liquid')
 #ax[1].fill_between(x, liquid['Absorbance'] + liquid['Std Absorbance'], liquid['Absorbance'] - liquid['Std Absorbance'], color='darkslategrey', alpha=0.5)
 ax[1].grid(alpha=0.5)
-ax[1].set_ylim([-1.5,2.3])
+ax[1].set_ylim([0,2.3])
 ax[1].set_xlabel('Wavelength (nm)')
 ax[1].set_ylabel('Absorbance')
 ax[1].set_title('(b)', y=-0.5)
@@ -212,7 +233,7 @@ fig, ax = subplots(2,1, tight_layout=True)
 ax[1].plot(x,liquid['Absorbance'], color='darkslategrey', label='Liquid')
 ax[1].fill_between(x, liquid['Absorbance'] + liquid['Std Absorbance'], liquid['Absorbance'] - liquid['Std Absorbance'], color='darkslategrey', alpha=0.5, label='Error Margin')
 ax[1].grid(alpha=0.5)
-ax[1].set_ylim([-1.5,2.3])
+ax[1].set_ylim([0,2.3])
 ax[1].set_xlabel('Wavelength (nm)')
 ax[1].set_ylabel('Absorbance')
 ax[1].set_title('(b)', y=-0.5)
@@ -248,6 +269,7 @@ ax[1].set_ylim([-1.5,2.3])
 ax[1].set_xlabel('Wavelength (nm)')
 ax[1].set_ylabel('Absorbance')
 ax[1].set_title('(b)', y=-0.5)
+ax[1].set_ylim([0,0.3])
 ax[1].legend(loc=1)
 
 ax[0].plot(x,smooth_trans_vp, color='darksalmon', label='Vapour')
@@ -256,12 +278,45 @@ ax[0].grid(alpha=0.5)
 ax[0].set_ylim([0,1])
 ax[0].set_ylabel('Transmittance')
 ax[0].set_title('(a)', y=-0.4)
+ax[0].set_ylim([0.6,1])
 savefig(r"C:\Users\Gebruiker\Documents\Uni\W&O Labs\Plots\absorb_trans.png")
 show()
+
+######################
+#------P--Test-------#
+######################
+
+# Vapour
+sig_vpt = np.sqrt(sum(vapour_dark['Std Transmittance']**2))/len(vapour_dark['Std Transmittance'])   # std
+random_sample_vpt = np.random.normal(1, sig_vpt, len(vapour_dark)).clip(0, 1)
+pval_vpt = ttest_ind(vapour_dark['Transmittance'], random_sample_vpt).pvalue
+print(pval_vpt, sig_vpt)
+
+# Liquid
+sig_lqt = np.sqrt(sum(liquid['Std Transmittance']**2))/len(liquid['Std Transmittance'])
+random_sample_lqt = np.random.normal(1, sig_lqt, len(liquid)).clip(0, 1)
+pval_lqt = ttest_ind(liquid['Transmittance'], random_sample_lqt).pvalue
+print(pval_lqt, sig_lqt)
 
 ######################
 #----Saving--data----#
 ######################
 
+data_vp = pd.concat([zero['Wavelength (nm)'], vapour_dark['Mean Curve'], vapour_dark['Std'],
+                     vapour_dark['Mean Corrected'],
+                     vapour_dark['Std Corrected'], vapour_dark['Transmittance'],
+                     vapour_dark['Std Transmittance'], vapour_dark['Absorbance'],
+                     vapour_dark['Std Absorbance']], axis=1)
+
+data_vp.insert(loc=3, column='Correction Value', value=C_vp)
+data_vp.to_csv(r"C:\Users\Gebruiker\Documents\Uni\W&O Labs\processed_data\data_vapour.csv")
 
 
+data_lq = pd.concat([zero['Wavelength (nm)'], liquid['Mean Curve'], liquid['Std'],
+                     liquid['Mean Corrected'],
+                     liquid['Std Corrected'], liquid['Transmittance'],
+                     liquid['Std Transmittance'], liquid['Absorbance'],
+                     liquid['Std Absorbance']], axis=1)
+
+data_lq.insert(loc=3, column='Correction Value', value=C_lq)
+data_lq.to_csv(r"C:\Users\Gebruiker\Documents\Uni\W&O Labs\processed_data\data_liquid.csv")
